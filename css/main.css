@@ -1,0 +1,218 @@
+html {
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+}
+body {
+  position: relative;
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+}
+#content {
+  height: 100%;
+  display: -webkit-flex;
+  display: flex;
+}
+#channelContainer {
+  background-color: #4d394b;
+  width: 300px;
+  min-width: 300px;
+  color: #a999a7;
+  overflow: hidden;
+}
+#UserInfo {
+  color: white;
+}
+.logout {
+  background-color: #4d394b;
+  border: none;
+  float: right;
+  color: red;
+  outline: none;
+}
+#channelContainer .heading {
+  border-bottom: 1px #3e313c solid;
+  padding-bottom: 2px;
+  margin: 6px;
+}
+#channelContainer a {
+  text-decoration: none;
+  color: #a999a7;
+  padding: 6px 8px;
+}
+#channelContainer a:hover {
+  background-color: #3e313c;
+}
+#channelContainer a.selected:hover {
+  background-color: #4f9689;
+}
+#channelContainer .online {
+  color: #4f9689;
+}
+#channelContainer a.selected .online {
+  color: #ddd;
+}
+#channelContainer .selected{
+  color: #ddd;
+  background-color: #4f9689;
+}
+#channelContainer .received-messages{
+  font-weight: bold;
+  color: white;
+}
+#channelContainer .indicator-icon{
+  font-size: 12px;
+  margin-right: 4px;
+}
+.channels-container {
+  margin-bottom: 24px;
+}
+.users-container a, .channels-container a{
+  display: block;
+}
+#messageContainer {
+  flex: 1;
+  -webkit-flex: 1;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  overflow: auto;
+}
+#messages {
+  /* http://stackoverflow.com/questions/12989931/body-height-100-displaying-vertical-scrollbar */
+  margin-bottom: 0px;
+  margin-top: 0px;
+  padding: 0px;
+  overflow-y: scroll;
+  -webkit-flex: 1;
+  flex: 1;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end; 
+  /* align-items: flex-end; */
+  /* align-items: flex-start; */
+  display: -webkit-flex
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+#messages li {
+  list-style: none;
+  margin-bottom: 4px;
+  padding: 4px;
+}
+#messages .sender {
+  font-weight: bold;
+  margin-right: 20px;
+}
+#messages .sentDate {
+  color: #666;
+  font-size: 14px;
+}
+#messages .message {
+  margin-top: 2px;
+  display: block;
+  overflow-wrap: break-word;
+}
+#messageForm {
+  display: -webkit-flex;
+  display: flex;
+  box-shadow: 0 -5px 5px -5px #333;
+  padding: 8px;
+}
+.messageInput {
+  -webkit-flex: 1;
+  flex: 1;
+  border: none;
+  font-size: 20px;
+  color: #333;
+}
+.messageInput:focus {
+  outline-width: 0;
+}
+#SendButton {
+  width: 50px;
+  border: none;
+  background-color: white;
+  color: #fe21c3;
+  font-size: 18px;
+}
+#SendButton:hover {
+  color: #da01a0;
+  cursor: pointer;
+}
+.delivery-confirmation {
+  color: green;
+  margin-left: 10px;
+  display: none;
+}
+.delivered .delivery-confirmation {
+  display: inline-block;
+}
+.delivery-receipt-confirmation {
+  color: green;
+  margin-left: 2px;
+  display: none;
+}
+.received .delivery-receipt-confirmation {
+  display: inline-block;
+}
+
+.typing-indicator {
+  margin-left: 10px;
+  display: none;
+  color: white;
+}
+
+.is-typing .typing-indicator {
+  display: inline-block;
+}
+
+/* LOGIN PAGE */
+
+@import url(https://fonts.googleapis.com/css?family=Roboto:300);
+
+#LoginPage {
+  width: 360px;
+  padding: 8% 0 0;
+  margin: auto;
+}
+#LoginPage .form {
+  position: relative;
+  z-index: 1;
+  background: #FFFFFF;
+  max-width: 360px;
+  margin: 0 auto 100px;
+  padding: 45px;
+  text-align: center;
+  box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
+}
+#LoginPage .form input {
+  font-family: "Roboto", sans-serif;
+  outline: 0;
+  background: #f2f2f2;
+  width: 100%;
+  border: 0;
+  margin: 0 0 15px;
+  padding: 15px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+#LoginPage .form button {
+  font-family: "Roboto", sans-serif;
+  text-transform: uppercase;
+  outline: 0;
+  background: #4CAF50;
+  width: 100%;
+  border: 0;
+  padding: 15px;
+  color: #FFFFFF;
+  font-size: 14px;
+  -webkit-transition: all 0.3 ease;
+  transition: all 0.3 ease;
+  cursor: pointer;
+}
+#LoginPage .form button:hover,.form button:active,.form button:focus {
+  background: #43A047;
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1"/>
+    <title>Socket.IO chat</title>
+    <script   src="https://code.jquery.com/jquery-2.2.3.min.js"   integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo="   crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div id="content" class="container"></div>
+  <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+  <!--script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/0.9.16/socket.io.min.js"></script-->
+  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1" crossorigin="anonymous">
+  <link href="css/main.css" rel="stylesheet">
+  <script type="text/javascript">
+    // request permission on page load
+    document.addEventListener('DOMContentLoaded', function () {
+      if (Notification.permission !== "granted")
+        Notification.requestPermission();
+    });
+  </script>
+  <script>
+    var apiUrl = 'http://localhost:8080';
+    var socketUrl = 'http://localhost:5000';
+    //var apiUrl = 'http://10.0.0.171:8080';
+    //var socketUrl = 'http://10.0.0.171:5000';
+      
+    //var apiUrl = 'https://intense-dusk-48409.herokuapp.com';
+    //var socketUrl = 'https://safe-atoll-11440.herokuapp.com';
+  </script>
+  <script id="login" type="text/template">
+    <div id="LoginPage">
+      <div class="form">
+        <form id="signinForm" class="login-form" action="">
+          <input id="inputEmail" type="text" placeholder="username"/>
+          <button type="submit">login</button>
+        </form>
+      </div>
+    </div>
+  </script>
+  <script id="chat" type="text/template">
+    <div id="channelContainer">
+      <div>
+        <span id="UserInfo"></span>
+        <button class="fa fa-bomb logout"></button>
+      </div>
+      <p class="heading">Channels</p>
+      <div class="channels-container">
+        <a href="javascript:;" data-id="0" class="selected">General</a>
+      </div>
+      <p class="heading">Direct Messages</p>
+      <div class="users-container">
+      </div>
+    </div>
+    <div id="messageContainer">
+      <ul id="messages"></ul>
+      <form id="messageForm" action="">
+        <input type="text" id="m" autocomplete="off" class="messageInput" />
+        <button id="SendButton" class="fa fa-space-shuttle"></button>
+      </form>
+    </div>
+  </script>
+  <script type="text/javascript" src="js/bundle.js"></script>
+  </body>
+</html>
