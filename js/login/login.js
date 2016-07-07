@@ -6,7 +6,6 @@ function initLogin()
 {
   $('#signinForm').submit(function() {
     var name = $('#inputEmail').val().toLowerCase();
-    console.log({userName: name})
     $.ajax({
         url: apiUrl + '/users',
         dataType: "json",
@@ -15,8 +14,6 @@ function initLogin()
         type: "POST"
       })
       .done(function(data, testStatus,jqXHR) {
-        console.log( "create user success" );
-        console.log(data);
         localStorage.setItem('userName', data.userName);
         localStorage.setItem('_id', data._id);
         $('#content').html($('#chat').html())
@@ -28,7 +25,6 @@ function initLogin()
       .always(function() {
         console.log( "completed signup post" );
     });
-    console.log(name);
     return false;
   });
 }
