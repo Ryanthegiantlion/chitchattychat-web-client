@@ -73,109 +73,6 @@
 	var MessagesView = __webpack_require__(109)
 	var ChannelsView = __webpack_require__(110)
 
-	// Users
-
-	function changeSelectedTab()
-	{
-	  $('.selected').removeClass('selected');
-	  $('a[data-id="' + window.chatData.id + '"]').addClass('selected');
-	}
-
-	function registerChannelClickHandlers(evt)
-	{
-	  // TODO: These two function are basically the same lets improve!
-	  $( ".channels-container" ).click(function(e) {
-	    window.chatData = {type: "Channel", id: 0, name: " General"};
-	    var tabMessages = app.messagesModel.chatMessages['0'].messages;
-	    console.log('switching channels: ' + JSON.stringify(chatData))
-	    app.messagesView.renderMessages($(e.target), tabMessages);
-	    var messages  = $('#messages');
-	    messages.scrollTop($('#messages')[0].scrollHeight);
-	    changeSelectedTab();
-	  });
-	  $( ".users-container" ).click(function(e) {
-	    window.chatData = {type: "DirectMessage", id: $(e.target).attr('data-id'), name: $(e.target).html()};
-	    var tabMessages = app.messagesModel.chatMessages[window.chatData.id].messages;
-	    console.log('switching channels: ' + JSON.stringify(chatData));
-	    var selectedUserId = $(e.target).attr('data-id');
-	    var selectedUser = app.channelsModel.users.find(function(item) { return item._id == selectedUserId});
-	    if (selectedUser) {
-	      selectedUser.hasUnreadMessages = false;
-	    }
-	    localStorage.setItem('users:' + app.session.userId, JSON.stringify(app.channelsModel.users));
-	    app.messagesView.renderMessages($(e.target), tabMessages);
-	    var messages  = $('#messages');
-	    messages.scrollTop($('#messages')[0].scrollHeight);
-	    app.channelsView.renderChannels();
-	    changeSelectedTab();
-	    //changeSelectedTab($(e.target));
-	    // TODO: eeeeew. we are doing this because the tob get re rended so the target disappears
-	    // $('.selected').removeClass('selected');
-	    // $('a[data-id="' + selectedUserId + '"]').addClass('selected');
-	  });
-	  $('.logout').click(function(e) {
-	    localStorage.clear();
-	    window.socket.disconnect();
-	    window.location.reload();
-	  }) 
-	}
-
-	// Messages
-
-	function getOfflineMessages()
-	{
-	  console.log('attempting to get offline messages');
-	  query = app.session.lastMessageTimeStamp ? {lastMessageTimeStamp: app.session.lastMessageTimeStamp.toJSON()} : null;
-	  console.log(query);
-	  $.ajax({
-	      url: apiUrl + '/messages/unread',
-	      contentType: "application/json; charset=UTF-8",
-	      headers: {'User-Id': app.session.userId},
-	      data: query
-	    })
-	    .done(function(data, testStatus,jqXHR) {
-	      console.log( "offline message sync callback!!!" );
-	      if (data && data.length > 0) {
-	        console.log( "got offline messages !!!" );
-	        var lastMessage = data[0];
-	        //TODO: eeeew!!!!
-	        data.reverse();
-	        console.log(data);
-	        // TODO: very innefecient! so more localstorage adds!
-	        // TODO: these don't cause a rerender yet!
-	        // this only works for now because we have no sync for general channel
-	        data.forEach(function(messageItem)
-	        {
-	          if (messageItem.type == 'DirectMessage') {
-	            window.socket.emit('messageReceived', messageItem);
-	          }
-	          // TODO: eeeeew! lots of unnneeded dom changes here
-	          //$('a[data-id="' + item.senderId + '"]').addClass('received-messages');
-	          var userWithUnreadMessage = app.channelsModel.users.find(function(userItem) { return messageItem.senderId == userItem._id});
-	          if (userWithUnreadMessage) {
-	            userWithUnreadMessage.hasUnreadMessages = true;
-	          }
-	          app.messagesModel.addMessage(messageItem);
-	        });
-	        app.session.lastMessageTimeStamp = new Date(lastMessage.timestamp);
-	        if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
-	        localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
-	        console.log('done syncing messages');
-	        app.channelsView.renderChannels();
-
-	      }
-	    })
-	    .fail(function() {
-	      console.log( "failed to get offline messages" );
-	    })
-	    .always(function() {
-	      console.log( "completed getting offline messages" );
-	  });
-	}
-
-	// Unsorted
-
-
 	function initChat()
 	{
 	  
@@ -185,17 +82,8 @@
 	  app.messagesModel = new MessagesModel();
 	  app.channelsModel = new ChannelsModel();
 
-	  app.messagesView = new MessagesView(app.messagesModel);
+	  app.messagesView = new MessagesView(app.messagesModel, app.channelsModel);
 	  app.channelsView = new ChannelsView(app.channelsModel, app.messagesModel);
-
-	  //app.channelsModel.users = JSON.parse(localStorage.getItem('users:' + app.session.userId)) || [];
-	  //app.messagesModel.chatMessages = JSON.parse(localStorage.getItem('messages:' + app.session.userId)) || { '0': {messages:[]}}
-
-	  window.chatData =  {type: "Channel", id: 0, name: " General"};
-	  window.onlineIndicators = {}
-	  window.typingIndicators = {}
-	  window.isCurrentlyTyping = false;
-	  window.typingTimoutFunc = undefined;
 
 	  app.channelsView.renderChannels();
 
@@ -230,14 +118,14 @@
 	    app.messagesModel.confirmMessage(data);
 	  });
 	  window.socket.on('onlineIndicators', function(data){
-	    window.onlineIndicators = {}
+	    app.channelsModel.onlineIndicators = {}
 	    data.onlineUsers.forEach(function(userId){
-	      window.onlineIndicators[userId] = true;
+	      app.channelsModel.onlineIndicators[userId] = true;
 	    });
 	    app.channelsView.renderChannels();
 	  });
 	  window.socket.on('typingIndicator', function(data) {
-	    window.typingIndicators[data.senderId] = data.isTyping;
+	    app.channelsModel.typingIndicators[data.senderId] = data.isTyping;
 	    app.channelsView.renderChannels();
 	  });
 	  window.socket.on('connect', function() {
@@ -245,11 +133,8 @@
 	  });
 
 
-	  //loadUsersFromLocalStorage();
 	  app.channelsModel.sync();
-	  getOfflineMessages();
-	  registerChannelClickHandlers();
-	  //registerMessageClickHandlers();
+	  app.messagesModel.getOfflineMessages();
 	}
 
 	module.exports = { initChat }
@@ -14160,6 +14045,44 @@
 			localStorage.setItem('messages:' + app.session.userId, JSON.stringify(this.chatMessages));
 		},
 
+		getOfflineMessages: function() {
+		  query = app.session.lastMessageTimeStamp ? {lastMessageTimeStamp: app.session.lastMessageTimeStamp.toJSON()} : null;
+		  $.ajax({
+		      url: apiUrl + '/messages/unread',
+		      contentType: "application/json; charset=UTF-8",
+		      headers: {'User-Id': app.session.userId},
+		      data: query
+		    })
+		    .done(function(data, testStatus,jqXHR) {
+		      if (data && data.length > 0) {
+		        var lastMessage = data[0];
+		        //TODO: eeeew!!!!
+		        data.reverse();
+		        data.forEach(function(messageItem)
+		        {
+		          if (messageItem.type == 'DirectMessage') {
+		            window.socket.emit('messageReceived', messageItem);
+		          }
+		          var userWithUnreadMessage = app.channelsModel.users.find(function(userItem) { return messageItem.senderId == userItem._id});
+		          if (userWithUnreadMessage) {
+		            userWithUnreadMessage.hasUnreadMessages = true;
+		          }
+		          app.messagesModel.addMessage(messageItem);
+		        });
+		        app.session.lastMessageTimeStamp = new Date(lastMessage.timestamp);
+		        if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
+		        localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
+		        app.channelsView.renderChannels();
+		      }
+		    })
+		    .fail(function() {
+		      console.log( "failed to get offline messages" );
+		    })
+		    .always(function() {
+		      console.log( "completed getting offline messages" );
+		  });
+		},
+
 		addMessage: function(data) {
 			if (data.type == 'DirectMessage') {
 		    if (!this.chatMessages[data.senderId]) {
@@ -14252,6 +14175,10 @@
 
 	var ChannelsModel = function() {
 		this.loadChannels();
+
+	  this.currentChannel =  {type: "Channel", id: 0, name: " General"};
+	  this.onlineIndicators = {}
+	  this.typingIndicators = {}
 	}
 
 	ChannelsModel.prototype = {
@@ -14265,13 +14192,27 @@
 
 		markChannelAsUnread: function(chatId) {
 			var existingUser = this.users.find(function(item){ return item._id == chatId});
-	    if (existingUser) {
-	      existingUser.hasUnreadMessages = true;
-	    }
+		    if (existingUser) {
+		      existingUser.hasUnreadMessages = true;
+		    }
 
-	    this.saveChannels();
+		    this.saveChannels();
 
 			$(this).trigger('change');
+		},
+
+		changeCurrentChannel: function(currentChannel) {
+			this.currentChannel = currentChannel;
+
+			var selectedUserId = currentChannel.id;
+		    var selectedUser = app.channelsModel.users.find(function(item) { return item._id == selectedUserId});
+		    if (selectedUser) {
+		      selectedUser.hasUnreadMessages = false;
+		    }
+		    
+		    this.saveChannels();
+
+			$(this).trigger('change:selected');
 		},
 
 		sync: function() {
@@ -14309,8 +14250,11 @@
 
 	var utilities = __webpack_require__(2)
 
-	var MessagesView = function(messagesModel) {
+	var MessagesView = function(messagesModel, channelsModel) {
 		this.messagesModel = messagesModel;
+		this.channelsModel = channelsModel;
+		this.isCurrentlyTyping = false;
+	  this.typingTimoutFunc = undefined;
 
 		this.bindModelEvents();
 		this.bindDomEvents();
@@ -14319,7 +14263,7 @@
 	MessagesView.prototype = {
 		clearTimeoutIndicator: function() {
 		  window.isTyping = false;
-		  window.socket.emit('typingIndicator', { isTyping: false, receiverId: window.chatData.id });
+		  window.socket.emit('typingIndicator', { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
 		},
 
 		bindModelEvents: function() {
@@ -14333,11 +14277,19 @@
 		  });
 
 		  $(this.messagesModel).on('messageAdded', (e, data) => {
-		  	if (data.chatId == window.chatData.id) {
+		  	if (data.chatId == app.channelsModel.currentChannel.id) {
 		  		this.renderMessage(data);	 
 
 		  		utilities.scrollToBottom('#messages'); 
 		  	}
+		  });
+
+		  $(this.channelsModel).on('change:selected', (e, data) => {
+		  	var newChannelId = this.channelsModel.currentChannel.id;
+		  	var tabMessages = this.messagesModel.chatMessages[newChannelId].messages;
+			  this.renderMessages($(e.target), tabMessages);
+			  // unlike the utility method we want this scroll to be immediate
+			  $('#messages').scrollTop($('#messages')[0].scrollHeight);
 		  });
 		},
 
@@ -14359,16 +14311,16 @@
 		    this.clearTimeoutIndicator();
 		    newMessage = $('#m').val();
 		    messageData = {
-		    	chatId: window.chatData.id,
-		      type: window.chatData.type,
+		    	chatId: app.channelsModel.currentChannel.id,
+		      type: app.channelsModel.currentChannel.type,
 		      text: newMessage, 
-		      receiverId: window.chatData.id, 
+		      receiverId: app.channelsModel.currentChannel.id, 
 		      clientMessageIdentifier: utilities.guid(),
 		      clientStartTime: new Date()
 		    };
 		    
 		    this.messagesModel.addMessage({
-		    	chatId: window.chatData.id,
+		    	chatId: app.channelsModel.currentChannel.id,
 		      clientStartTime: messageData.clientStartTime,
 		      type: messageData.type,
 		      senderId: messageData.receiverId, 
@@ -14387,9 +14339,9 @@
 		  });
 		  
 		  $('#m').on('input', () => {
-		    if (window.chatData.type == 'DirectMessage') {
+		    if (app.channelsModel.currentChannel.type == 'DirectMessage') {
 			    if (!window.isTyping) {
-			      window.socket.emit('typingIndicator', { isTyping: true, receiverId: window.chatData.id })
+			      window.socket.emit('typingIndicator', { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
 			      window.isTyping = true;
 			      window.typingTimeoutFunc = setTimeout(() => this.clearTimeoutIndicator(), 4000);
 			    }
@@ -14419,7 +14371,7 @@
 			    .addClass('fa-check')
 			    .addClass('delivery-receipt-confirmation')
 			    .attr('data-client-message-indentifier', data.clientMessageIdentifier)
-			    .attr('data-receiver-id', window.chatData.id);
+			    .attr('data-receiver-id', app.channelsModel.currentChannel.id);
 			  li.append([name, clientTime, deliveryConfirmation, deliveryReceiptConfirmation, message]);
 			  $('#messages').append(li); 
 		},
@@ -14444,12 +14396,22 @@
 		this.messagesModel = messagesModel;
 
 		this.bindModelEvents();
+		this.bindDomEvents();
 	}
 
 	ChannelsView.prototype = {
+		// TODO: Lets remove this and add it to the render
+		// The problem with removing this at the moment is that the render does not cover the 
+		// broadcast channels. So the selected highlight hangs around.
+		changeSelectedTab: function()
+		{
+		  $('.selected').removeClass('selected');
+		  $('a[data-id="' + app.channelsModel.currentChannel.id + '"]').addClass('selected');
+		},
+
 		bindModelEvents: function() {
 			$(this.messagesModel).on('messageAdded', (e, data) => {
-				if (data.chatId != window.chatData.id) {
+				if (data.chatId != app.channelsModel.currentChannel.id) {
 					this.channelsModel.markChannelAsUnread(data.chatId);
 		  	}
 			});
@@ -14457,6 +14419,28 @@
 			$(this.channelsModel).on('change', (e, data) => {
 				this.renderChannels();
 			});
+
+			$(this.channelsModel).on('change:selected', (e, data) => {
+				this.changeSelectedTab();
+			});
+		},
+
+		bindDomEvents: function() {
+			$( ".channels-container" ).click((e) => {
+		    this.channelsModel.changeCurrentChannel({type: "Channel", id: 0, name: " General"});
+			 });
+
+			$( ".users-container" ).click((e) => {
+				this.channelsModel.changeCurrentChannel({type: "DirectMessage", id: $(e.target).attr('data-id'), name: $(e.target).html()});
+
+		    app.channelsView.renderChannels();
+		  });
+
+			$('.logout').click(function(e) {
+		  	localStorage.clear();
+		    window.socket.disconnect();
+		    window.location.reload();
+			}) 
 		},
 
 		renderChannels: function() {
@@ -14475,7 +14459,7 @@
 
 		      var isCurrentlyTyping = $('<span>').attr('data-id', item._id).addClass('typing-indicator').html('...');
 
-		      if (!(item._id in window.onlineIndicators)) {
+		      if (!(item._id in app.channelsModel.onlineIndicators)) {
 		        activityIcon.addClass('fa-circle-o').addClass('offline');
 		      }
 		      else {
@@ -14486,11 +14470,11 @@
 		        .attr('href', 'javascript:;')
 		        .attr('data-id', item._id);
 
-		      if (window.chatData.id == item._id) {
+		      if (app.channelsModel.currentChannel.id == item._id) {
 		        userLink.addClass('selected');
 		      }
 
-		      if (window.typingIndicators[item._id]) {
+		      if (app.channelsModel.typingIndicators[item._id]) {
 		        userLink.addClass('is-typing');
 		      }
 

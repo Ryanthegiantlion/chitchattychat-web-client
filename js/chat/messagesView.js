@@ -1,7 +1,10 @@
 var utilities = require('../utilities')
 
-var MessagesView = function(messagesModel) {
+var MessagesView = function(messagesModel, channelsModel) {
 	this.messagesModel = messagesModel;
+	this.channelsModel = channelsModel;
+	this.isCurrentlyTyping = false;
+  this.typingTimoutFunc = undefined;
 
 	this.bindModelEvents();
 	this.bindDomEvents();
@@ -10,7 +13,7 @@ var MessagesView = function(messagesModel) {
 MessagesView.prototype = {
 	clearTimeoutIndicator: function() {
 	  window.isTyping = false;
-	  window.socket.emit('typingIndicator', { isTyping: false, receiverId: window.chatData.id });
+	  window.socket.emit('typingIndicator', { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
 	},
 
 	bindModelEvents: function() {
@@ -24,11 +27,19 @@ MessagesView.prototype = {
 	  });
 
 	  $(this.messagesModel).on('messageAdded', (e, data) => {
-	  	if (data.chatId == window.chatData.id) {
+	  	if (data.chatId == app.channelsModel.currentChannel.id) {
 	  		this.renderMessage(data);	 
 
 	  		utilities.scrollToBottom('#messages'); 
 	  	}
+	  });
+
+	  $(this.channelsModel).on('change:selected', (e, data) => {
+	  	var newChannelId = this.channelsModel.currentChannel.id;
+	  	var tabMessages = this.messagesModel.chatMessages[newChannelId].messages;
+		  this.renderMessages($(e.target), tabMessages);
+		  // unlike the utility method we want this scroll to be immediate
+		  $('#messages').scrollTop($('#messages')[0].scrollHeight);
 	  });
 	},
 
@@ -50,16 +61,16 @@ MessagesView.prototype = {
 	    this.clearTimeoutIndicator();
 	    newMessage = $('#m').val();
 	    messageData = {
-	    	chatId: window.chatData.id,
-	      type: window.chatData.type,
+	    	chatId: app.channelsModel.currentChannel.id,
+	      type: app.channelsModel.currentChannel.type,
 	      text: newMessage, 
-	      receiverId: window.chatData.id, 
+	      receiverId: app.channelsModel.currentChannel.id, 
 	      clientMessageIdentifier: utilities.guid(),
 	      clientStartTime: new Date()
 	    };
 	    
 	    this.messagesModel.addMessage({
-	    	chatId: window.chatData.id,
+	    	chatId: app.channelsModel.currentChannel.id,
 	      clientStartTime: messageData.clientStartTime,
 	      type: messageData.type,
 	      senderId: messageData.receiverId, 
@@ -78,9 +89,9 @@ MessagesView.prototype = {
 	  });
 	  
 	  $('#m').on('input', () => {
-	    if (window.chatData.type == 'DirectMessage') {
+	    if (app.channelsModel.currentChannel.type == 'DirectMessage') {
 		    if (!window.isTyping) {
-		      window.socket.emit('typingIndicator', { isTyping: true, receiverId: window.chatData.id })
+		      window.socket.emit('typingIndicator', { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
 		      window.isTyping = true;
 		      window.typingTimeoutFunc = setTimeout(() => this.clearTimeoutIndicator(), 4000);
 		    }
@@ -110,7 +121,7 @@ MessagesView.prototype = {
 		    .addClass('fa-check')
 		    .addClass('delivery-receipt-confirmation')
 		    .attr('data-client-message-indentifier', data.clientMessageIdentifier)
-		    .attr('data-receiver-id', window.chatData.id);
+		    .attr('data-receiver-id', app.channelsModel.currentChannel.id);
 		  li.append([name, clientTime, deliveryConfirmation, deliveryReceiptConfirmation, message]);
 		  $('#messages').append(li); 
 	},

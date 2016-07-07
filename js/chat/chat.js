@@ -7,109 +7,6 @@ var ChannelsModel = require('./channelsModel')
 var MessagesView = require('./messagesView')
 var ChannelsView = require('./channelsView')
 
-// Users
-
-function changeSelectedTab()
-{
-  $('.selected').removeClass('selected');
-  $('a[data-id="' + window.chatData.id + '"]').addClass('selected');
-}
-
-function registerChannelClickHandlers(evt)
-{
-  // TODO: These two function are basically the same lets improve!
-  $( ".channels-container" ).click(function(e) {
-    window.chatData = {type: "Channel", id: 0, name: " General"};
-    var tabMessages = app.messagesModel.chatMessages['0'].messages;
-    console.log('switching channels: ' + JSON.stringify(chatData))
-    app.messagesView.renderMessages($(e.target), tabMessages);
-    var messages  = $('#messages');
-    messages.scrollTop($('#messages')[0].scrollHeight);
-    changeSelectedTab();
-  });
-  $( ".users-container" ).click(function(e) {
-    window.chatData = {type: "DirectMessage", id: $(e.target).attr('data-id'), name: $(e.target).html()};
-    var tabMessages = app.messagesModel.chatMessages[window.chatData.id].messages;
-    console.log('switching channels: ' + JSON.stringify(chatData));
-    var selectedUserId = $(e.target).attr('data-id');
-    var selectedUser = app.channelsModel.users.find(function(item) { return item._id == selectedUserId});
-    if (selectedUser) {
-      selectedUser.hasUnreadMessages = false;
-    }
-    localStorage.setItem('users:' + app.session.userId, JSON.stringify(app.channelsModel.users));
-    app.messagesView.renderMessages($(e.target), tabMessages);
-    var messages  = $('#messages');
-    messages.scrollTop($('#messages')[0].scrollHeight);
-    app.channelsView.renderChannels();
-    changeSelectedTab();
-    //changeSelectedTab($(e.target));
-    // TODO: eeeeew. we are doing this because the tob get re rended so the target disappears
-    // $('.selected').removeClass('selected');
-    // $('a[data-id="' + selectedUserId + '"]').addClass('selected');
-  });
-  $('.logout').click(function(e) {
-    localStorage.clear();
-    window.socket.disconnect();
-    window.location.reload();
-  }) 
-}
-
-// Messages
-
-function getOfflineMessages()
-{
-  console.log('attempting to get offline messages');
-  query = app.session.lastMessageTimeStamp ? {lastMessageTimeStamp: app.session.lastMessageTimeStamp.toJSON()} : null;
-  console.log(query);
-  $.ajax({
-      url: apiUrl + '/messages/unread',
-      contentType: "application/json; charset=UTF-8",
-      headers: {'User-Id': app.session.userId},
-      data: query
-    })
-    .done(function(data, testStatus,jqXHR) {
-      console.log( "offline message sync callback!!!" );
-      if (data && data.length > 0) {
-        console.log( "got offline messages !!!" );
-        var lastMessage = data[0];
-        //TODO: eeeew!!!!
-        data.reverse();
-        console.log(data);
-        // TODO: very innefecient! so more localstorage adds!
-        // TODO: these don't cause a rerender yet!
-        // this only works for now because we have no sync for general channel
-        data.forEach(function(messageItem)
-        {
-          if (messageItem.type == 'DirectMessage') {
-            window.socket.emit('messageReceived', messageItem);
-          }
-          // TODO: eeeeew! lots of unnneeded dom changes here
-          //$('a[data-id="' + item.senderId + '"]').addClass('received-messages');
-          var userWithUnreadMessage = app.channelsModel.users.find(function(userItem) { return messageItem.senderId == userItem._id});
-          if (userWithUnreadMessage) {
-            userWithUnreadMessage.hasUnreadMessages = true;
-          }
-          app.messagesModel.addMessage(messageItem);
-        });
-        app.session.lastMessageTimeStamp = new Date(lastMessage.timestamp);
-        if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
-        localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
-        console.log('done syncing messages');
-        app.channelsView.renderChannels();
-
-      }
-    })
-    .fail(function() {
-      console.log( "failed to get offline messages" );
-    })
-    .always(function() {
-      console.log( "completed getting offline messages" );
-  });
-}
-
-// Unsorted
-
-
 function initChat()
 {
   
@@ -119,17 +16,8 @@ function initChat()
   app.messagesModel = new MessagesModel();
   app.channelsModel = new ChannelsModel();
 
-  app.messagesView = new MessagesView(app.messagesModel);
+  app.messagesView = new MessagesView(app.messagesModel, app.channelsModel);
   app.channelsView = new ChannelsView(app.channelsModel, app.messagesModel);
-
-  //app.channelsModel.users = JSON.parse(localStorage.getItem('users:' + app.session.userId)) || [];
-  //app.messagesModel.chatMessages = JSON.parse(localStorage.getItem('messages:' + app.session.userId)) || { '0': {messages:[]}}
-
-  window.chatData =  {type: "Channel", id: 0, name: " General"};
-  window.onlineIndicators = {}
-  window.typingIndicators = {}
-  window.isCurrentlyTyping = false;
-  window.typingTimoutFunc = undefined;
 
   app.channelsView.renderChannels();
 
@@ -164,14 +52,14 @@ function initChat()
     app.messagesModel.confirmMessage(data);
   });
   window.socket.on('onlineIndicators', function(data){
-    window.onlineIndicators = {}
+    app.channelsModel.onlineIndicators = {}
     data.onlineUsers.forEach(function(userId){
-      window.onlineIndicators[userId] = true;
+      app.channelsModel.onlineIndicators[userId] = true;
     });
     app.channelsView.renderChannels();
   });
   window.socket.on('typingIndicator', function(data) {
-    window.typingIndicators[data.senderId] = data.isTyping;
+    app.channelsModel.typingIndicators[data.senderId] = data.isTyping;
     app.channelsView.renderChannels();
   });
   window.socket.on('connect', function() {
@@ -179,11 +67,8 @@ function initChat()
   });
 
 
-  //loadUsersFromLocalStorage();
   app.channelsModel.sync();
-  getOfflineMessages();
-  registerChannelClickHandlers();
-  //registerMessageClickHandlers();
+  app.messagesModel.getOfflineMessages();
 }
 
 module.exports = { initChat }

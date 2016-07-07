@@ -3,12 +3,22 @@ var ChannelsView = function(channelsModel, messagesModel){
 	this.messagesModel = messagesModel;
 
 	this.bindModelEvents();
+	this.bindDomEvents();
 }
 
 ChannelsView.prototype = {
+	// TODO: Lets remove this and add it to the render
+	// The problem with removing this at the moment is that the render does not cover the 
+	// broadcast channels. So the selected highlight hangs around.
+	changeSelectedTab: function()
+	{
+	  $('.selected').removeClass('selected');
+	  $('a[data-id="' + app.channelsModel.currentChannel.id + '"]').addClass('selected');
+	},
+
 	bindModelEvents: function() {
 		$(this.messagesModel).on('messageAdded', (e, data) => {
-			if (data.chatId != window.chatData.id) {
+			if (data.chatId != app.channelsModel.currentChannel.id) {
 				this.channelsModel.markChannelAsUnread(data.chatId);
 	  	}
 		});
@@ -16,6 +26,28 @@ ChannelsView.prototype = {
 		$(this.channelsModel).on('change', (e, data) => {
 			this.renderChannels();
 		});
+
+		$(this.channelsModel).on('change:selected', (e, data) => {
+			this.changeSelectedTab();
+		});
+	},
+
+	bindDomEvents: function() {
+		$( ".channels-container" ).click((e) => {
+	    this.channelsModel.changeCurrentChannel({type: "Channel", id: 0, name: " General"});
+		 });
+
+		$( ".users-container" ).click((e) => {
+			this.channelsModel.changeCurrentChannel({type: "DirectMessage", id: $(e.target).attr('data-id'), name: $(e.target).html()});
+
+	    app.channelsView.renderChannels();
+	  });
+
+		$('.logout').click(function(e) {
+	  	localStorage.clear();
+	    window.socket.disconnect();
+	    window.location.reload();
+		}) 
 	},
 
 	renderChannels: function() {
@@ -34,7 +66,7 @@ ChannelsView.prototype = {
 
 	      var isCurrentlyTyping = $('<span>').attr('data-id', item._id).addClass('typing-indicator').html('...');
 
-	      if (!(item._id in window.onlineIndicators)) {
+	      if (!(item._id in app.channelsModel.onlineIndicators)) {
 	        activityIcon.addClass('fa-circle-o').addClass('offline');
 	      }
 	      else {
@@ -45,11 +77,11 @@ ChannelsView.prototype = {
 	        .attr('href', 'javascript:;')
 	        .attr('data-id', item._id);
 
-	      if (window.chatData.id == item._id) {
+	      if (app.channelsModel.currentChannel.id == item._id) {
 	        userLink.addClass('selected');
 	      }
 
-	      if (window.typingIndicators[item._id]) {
+	      if (app.channelsModel.typingIndicators[item._id]) {
 	        userLink.addClass('is-typing');
 	      }
 

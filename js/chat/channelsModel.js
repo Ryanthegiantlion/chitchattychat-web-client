@@ -1,5 +1,9 @@
 var ChannelsModel = function() {
 	this.loadChannels();
+
+  this.currentChannel =  {type: "Channel", id: 0, name: " General"};
+  this.onlineIndicators = {}
+  this.typingIndicators = {}
 }
 
 ChannelsModel.prototype = {
@@ -13,13 +17,27 @@ ChannelsModel.prototype = {
 
 	markChannelAsUnread: function(chatId) {
 		var existingUser = this.users.find(function(item){ return item._id == chatId});
-    if (existingUser) {
-      existingUser.hasUnreadMessages = true;
-    }
+	    if (existingUser) {
+	      existingUser.hasUnreadMessages = true;
+	    }
 
-    this.saveChannels();
+	    this.saveChannels();
 
 		$(this).trigger('change');
+	},
+
+	changeCurrentChannel: function(currentChannel) {
+		this.currentChannel = currentChannel;
+
+		var selectedUserId = currentChannel.id;
+	    var selectedUser = app.channelsModel.users.find(function(item) { return item._id == selectedUserId});
+	    if (selectedUser) {
+	      selectedUser.hasUnreadMessages = false;
+	    }
+	    
+	    this.saveChannels();
+
+		$(this).trigger('change:selected');
 	},
 
 	sync: function() {
