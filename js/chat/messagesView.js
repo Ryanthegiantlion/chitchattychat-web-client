@@ -1,4 +1,5 @@
 var utilities = require('../utilities')
+var SocketEvents = require('../constants/socketEvents')
 
 var MessagesView = function(messagesModel, channelsModel) {
 	this.messagesModel = messagesModel;
@@ -13,17 +14,17 @@ var MessagesView = function(messagesModel, channelsModel) {
 MessagesView.prototype = {
 	clearTimeoutIndicator: function() {
 	  window.isTyping = false;
-	  window.socket.emit('typingIndicator', { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
+	  window.socket.emit(SocketEvents.TypingStatus, { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
 	},
 
 	bindModelEvents: function() {
-	  $(this.messagesModel).on('messageConfirmed', (e, data) => {
-	  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('delivered');
+	  $(this.messagesModel).on('messageSendConfirmed', (e, data) => {
+	  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('sent');
 	  });
 
 	  // $('li[data-clientMessageIdentifier=' + messageReceivedConfirmation.clientMessageIdentifier + ']').addClass('received');
-	  $(this.messagesModel).on('messageReceiptConfirmed', (e, data) => {
-	  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('received');	  
+	  $(this.messagesModel).on('messageDeliveryConfirmed', (e, data) => {
+	  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('delivered');	  
 	  });
 
 	  $(this.messagesModel).on('messageAdded', (e, data) => {
@@ -46,7 +47,7 @@ MessagesView.prototype = {
 	bindDomEvents: function() {
 		$('#messageContainer').click(function(e) {
 	    var $sourceElement = $(e.target);
-	    if ($sourceElement.hasClass('delivery-receipt-confirmation')) {
+	    if ($sourceElement.hasClass('delivery-confirmation')) {
 	      var clientMessageIdentifier = $sourceElement.attr('data-client-message-indentifier');
 	      var receiverId = $sourceElement.attr('data-receiver-id');
 	      var message = app.messagesModel.chatMessages[receiverId].messages.find((message) => message.clientMessageIdentifier == clientMessageIdentifier);
@@ -91,7 +92,7 @@ MessagesView.prototype = {
 	  $('#m').on('input', () => {
 	    if (app.channelsModel.currentChannel.type == 'DirectMessage') {
 		    if (!window.isTyping) {
-		      window.socket.emit('typingIndicator', { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
+		      window.socket.emit(SocketEvents.TypingStatus, { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
 		      window.isTyping = true;
 		      window.typingTimeoutFunc = setTimeout(() => this.clearTimeoutIndicator(), 4000);
 		    }
@@ -109,20 +110,22 @@ MessagesView.prototype = {
 		  if (data.isDelivered) {
 		    li.addClass('delivered');
 		  }
-		  if (data.isReceived) {
-		    li.addClass('received');
+		  if (data.isSent) {
+		    li.addClass('sent');
 		  }
-		  //console.log(data)
 		  var name = $('<span>').addClass('sender').text(data.senderName);
 		  var clientTime = $('<span>').addClass('sentDate').text(utilities.formatDate(data.timestamp));
 		  var message = $('<span>').addClass('message').text(data.text);
-		  var deliveryConfirmation = $('<span>').addClass('fa').addClass('fa-check').addClass('delivery-confirmation');
-		  var deliveryReceiptConfirmation = $('<span>').addClass('fa')
+		  var sentConfirmation = $('<span>')
+		  	.addClass('fa')
+		  	.addClass('fa-check')
+		  	.addClass('sent-confirmation');
+		  var deliveryConfirmation = $('<span>').addClass('fa')
 		    .addClass('fa-check')
-		    .addClass('delivery-receipt-confirmation')
+		    .addClass('delivery-confirmation')
 		    .attr('data-client-message-indentifier', data.clientMessageIdentifier)
 		    .attr('data-receiver-id', app.channelsModel.currentChannel.id);
-		  li.append([name, clientTime, deliveryConfirmation, deliveryReceiptConfirmation, message]);
+		  li.append([name, clientTime, sentConfirmation, deliveryConfirmation, message]);
 		  $('#messages').append(li); 
 	},
 

@@ -14,7 +14,7 @@ body {
   display: -webkit-flex;
   display: flex;
 }
-#channelContainer {
+#channelsContainer {
   background-color: #4d394b;
   width: 300px;
   min-width: 300px;
@@ -31,44 +31,44 @@ body {
   color: red;
   outline: none;
 }
-#channelContainer .heading {
+#channelsContainer .heading {
   border-bottom: 1px #3e313c solid;
   padding-bottom: 2px;
   margin: 6px;
 }
-#channelContainer a {
+#channelsContainer a {
   text-decoration: none;
   color: #a999a7;
   padding: 6px 8px;
 }
-#channelContainer a:hover {
+#channelsContainer a:hover {
   background-color: #3e313c;
 }
-#channelContainer a.selected:hover {
+#channelsContainer a.selected:hover {
   background-color: #4f9689;
 }
-#channelContainer .online {
+#channelsContainer .online {
   color: #4f9689;
 }
-#channelContainer a.selected .online {
+#channelsContainer a.selected .online {
   color: #ddd;
 }
-#channelContainer .selected{
+#channelsContainer .selected{
   color: #ddd;
   background-color: #4f9689;
 }
-#channelContainer .received-messages{
+#channelsContainer .received-messages{
   font-weight: bold;
   color: white;
 }
-#channelContainer .indicator-icon{
+#channelsContainer .indicator-icon{
   font-size: 12px;
   margin-right: 4px;
 }
-.channels-container {
+.groups-container {
   margin-bottom: 24px;
 }
-.users-container a, .channels-container a{
+.users-container a, .groups-container a{
   display: block;
 }
 #messageContainer {
@@ -144,18 +144,18 @@ body {
 }
 .delivery-confirmation {
   color: green;
-  margin-left: 10px;
+  margin-left: 2px;
   display: none;
 }
 .delivered .delivery-confirmation {
   display: inline-block;
 }
-.delivery-receipt-confirmation {
+.sent-confirmation {
   color: green;
-  margin-left: 2px;
+  margin-left: 10px;
   display: none;
 }
-.received .delivery-receipt-confirmation {
+.sent .sent-confirmation {
   display: inline-block;
 }
 

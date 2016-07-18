@@ -33,8 +33,8 @@ ChannelsView.prototype = {
 	},
 
 	bindDomEvents: function() {
-		$( ".channels-container" ).click((e) => {
-	    this.channelsModel.changeCurrentChannel({type: "Channel", id: 0, name: " General"});
+		$( ".groups-container" ).click((e) => {
+	    this.channelsModel.changeCurrentChannel({type: "Group", id: 0, name: " General"});
 		 });
 
 		$( ".users-container" ).click((e) => {
@@ -44,9 +44,9 @@ ChannelsView.prototype = {
 	  });
 
 		$('.logout').click(function(e) {
-	  	localStorage.clear();
-	    window.socket.disconnect();
-	    window.location.reload();
+	  		localStorage.clear();
+	    	window.socket.disconnect();
+	    	window.location.reload();
 		}) 
 	},
 
@@ -66,7 +66,7 @@ ChannelsView.prototype = {
 
 	      var isCurrentlyTyping = $('<span>').attr('data-id', item._id).addClass('typing-indicator').html('...');
 
-	      if (!(item._id in app.channelsModel.onlineIndicators)) {
+	      if (!(item._id in app.channelsModel.onlineStatuses)) {
 	        activityIcon.addClass('fa-circle-o').addClass('offline');
 	      }
 	      else {
@@ -81,7 +81,7 @@ ChannelsView.prototype = {
 	        userLink.addClass('selected');
 	      }
 
-	      if (app.channelsModel.typingIndicators[item._id]) {
+	      if (app.channelsModel.typingStatuses[item._id]) {
 	        userLink.addClass('is-typing');
 	      }
 

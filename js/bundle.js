@@ -73,6 +73,9 @@
 	var MessagesView = __webpack_require__(109)
 	var ChannelsView = __webpack_require__(110)
 
+	var SocketEvents = __webpack_require__(112)
+
+
 	function initChat()
 	{
 	  
@@ -94,47 +97,60 @@
 	  messages.scrollTop($('#messages')[0].scrollHeight);
 	  $('#UserInfo').html('logged in as: ' + app.session.userName);
 
-	  var query = {query: "userId=" + app.session.userId + "&userName=" + app.session.userName };
+	  var query = {query: "userId=" + app.session.userId + "&userName=" + app.session.userName + "&lastMessageTimeStamp=" + app.session.lastMessageTimeStamp.toJSON()};
 	  window.socket = io(socketUrl, query);
+	  window.pingFuncId = undefined;
+
 	  //var socket = io('https://chatty-socket-chat-server.herokuapp.com/', query);
 	  
-	  window.socket.on('message', function(data){
+	  window.socket.on(SocketEvents.Message, function(data){
 	    app.session.lastMessageTimeStamp = new Date(data.timestamp);
 	    if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
 	    localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
 	    //onReceivedMessage(data);
 	    app.messagesModel.addMessage(data);
 	    if (data.type == 'DirectMessage') {
-	      window.socket.emit('messageReceived', data);
+	      window.socket.emit(SocketEvents.MessageDeliveredConfirmation, data);
 	    }
 	    utilities.notifyMe(data.text)
 	  });
-	  window.socket.on('messageReceived', function(data) {
-	    app.messagesModel.confirmMessageReceipts(data);
+	  window.socket.on(SocketEvents.MessageDeliveredConfirmation, function(data) {
+	    console.log('delivery confirmation 111')
+	    app.messagesModel.confirmDelivery(data);
 	  });
-	  window.socket.on('messageConfirmation', function(data){
+	  window.socket.on(SocketEvents.MessageSentConfirmation, function(data){
 	    app.session.lastMessageTimeStamp = new Date(data.timestamp);
 	    localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
-	    app.messagesModel.confirmMessage(data);
+	    app.messagesModel.confirmSend(data);
 	  });
-	  window.socket.on('onlineIndicators', function(data){
-	    app.channelsModel.onlineIndicators = {}
+	  window.socket.on(SocketEvents.OnlineStatus, function(data){
+	    app.channelsModel.onlineStatuses = {}
 	    data.onlineUsers.forEach(function(userId){
-	      app.channelsModel.onlineIndicators[userId] = true;
+	      app.channelsModel.onlineStatuses[userId] = true;
 	    });
 	    app.channelsView.renderChannels();
 	  });
-	  window.socket.on('typingIndicator', function(data) {
-	    app.channelsModel.typingIndicators[data.senderId] = data.isTyping;
+	  window.socket.on(SocketEvents.TypingStatus, function(data) {
+	    app.channelsModel.typingStatuses[data.senderId] = data.isTyping;
 	    app.channelsView.renderChannels();
+	  });
+	  window.socket.on(SocketEvents.Hello, function(data) {
+	    //console.log('got messages from server')
 	  });
 	  window.socket.on('connect', function() {
 	    console.log('connected socket. transport: ' + window.socket.io.engine.transport.name);
+	    window.pingFuncId = setInterval(function() {
+	      //console.log('pinging server');
+	      socket.emit(SocketEvents.Hello, {message: 'hello server'});
+	    }, 30000)
+	  });
+	  window.socket.on('disconnect', function() {
+	    clearInterval(window.pingFuncId);
 	  });
 
 
 	  app.channelsModel.sync();
-	  app.messagesModel.getOfflineMessages();
+	  //app.messagesModel.getOfflineMessages();
 	}
 
 	module.exports = { initChat }
@@ -14036,6 +14052,15 @@
 		this.loadMessages();
 	}
 
+	var SocketEvents = {
+		PingPong: 'pingPong',
+		Message: 'message',
+	    MessageSentConfirmation: 'messageSentConfirmation',
+	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
+	    OnlineStatus: 'onlineStatus',
+	    TypingStatus: 'typingStatus',
+	}
+
 	MessagesModel.prototype = {
 		loadMessages: function() {
 			this.chatMessages = JSON.parse(localStorage.getItem('messages:' + app.session.userId)) || { '0': {messages:[]}};
@@ -14046,41 +14071,41 @@
 		},
 
 		getOfflineMessages: function() {
-		  query = app.session.lastMessageTimeStamp ? {lastMessageTimeStamp: app.session.lastMessageTimeStamp.toJSON()} : null;
-		  $.ajax({
-		      url: apiUrl + '/messages/unread',
-		      contentType: "application/json; charset=UTF-8",
-		      headers: {'User-Id': app.session.userId},
-		      data: query
-		    })
-		    .done(function(data, testStatus,jqXHR) {
-		      if (data && data.length > 0) {
-		        var lastMessage = data[0];
-		        //TODO: eeeew!!!!
-		        data.reverse();
-		        data.forEach(function(messageItem)
-		        {
-		          if (messageItem.type == 'DirectMessage') {
-		            window.socket.emit('messageReceived', messageItem);
-		          }
-		          var userWithUnreadMessage = app.channelsModel.users.find(function(userItem) { return messageItem.senderId == userItem._id});
-		          if (userWithUnreadMessage) {
-		            userWithUnreadMessage.hasUnreadMessages = true;
-		          }
-		          app.messagesModel.addMessage(messageItem);
-		        });
-		        app.session.lastMessageTimeStamp = new Date(lastMessage.timestamp);
-		        if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
-		        localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
-		        app.channelsView.renderChannels();
-		      }
-		    })
-		    .fail(function() {
-		      console.log( "failed to get offline messages" );
-		    })
-		    .always(function() {
-		      console.log( "completed getting offline messages" );
-		  });
+		  // query = app.session.lastMessageTimeStamp ? {lastMessageTimeStamp: app.session.lastMessageTimeStamp.toJSON()} : null;
+		  // $.ajax({
+		  //     url: apiUrl + '/messages/unread',
+		  //     contentType: "application/json; charset=UTF-8",
+		  //     headers: {'User-Id': app.session.userId},
+		  //     data: query
+		  //   })
+		  //   .done(function(data, testStatus,jqXHR) {
+		  //     if (data && data.length > 0) {
+		  //       var lastMessage = data[0];
+		  //       //TODO: eeeew!!!!
+		  //       data.reverse();
+		  //       data.forEach(function(messageItem)
+		  //       {
+		  //         if (messageItem.type == 'DirectMessage') {
+		  //           window.socket.emit(SocketEvents.MessageDeliveredConfirmation, messageItem);
+		  //         }
+		  //         var userWithUnreadMessage = app.channelsModel.users.find(function(userItem) { return messageItem.senderId == userItem._id});
+		  //         if (userWithUnreadMessage) {
+		  //           userWithUnreadMessage.hasUnreadMessages = true;
+		  //         }
+		  //         app.messagesModel.addMessage(messageItem);
+		  //       });
+		  //       app.session.lastMessageTimeStamp = new Date(lastMessage.timestamp);
+		  //       if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
+		  //       localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
+		  //       app.channelsView.renderChannels();
+		  //     }
+		  //   })
+		  //   .fail(function() {
+		  //     console.log( "failed to get offline messages" );
+		  //   })
+		  //   .always(function() {
+		  //     console.log( "completed getting offline messages" );
+		  // });
 		},
 
 		addMessage: function(data) {
@@ -14097,7 +14122,7 @@
 		      timestamp: data.timestamp
 		    });
 		  }
-		  else if (data.type == 'Channel') {
+		  else if (data.type == 'Group') {
 		    this.chatMessages['0'].messages.push({
 		      senderName: data.senderName,
 		      text: data.text,
@@ -14111,49 +14136,49 @@
 	  	$(this).trigger('messageAdded', data);
 		},
 
-		confirmMessage: function(data)
+		confirmSend: function(data)
 		{
-		  if (data.type == 'Channel') {
+		  if (data.type == 'Group') {
 		    var message = this.chatMessages['0'].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
 		    message.timestamp = data.timestamp;
-		    message.isDelivered = true;
+		    message.isSent = true;
 		  } else {
 		    var message = this.chatMessages[data.receiverId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
 		    message.timestamp = data.timestamp;
-		    message.isDelivered = true;
+		    message.isSent = true;
 		  }
 
 		  this.saveMessages();
 
-		  $(this).trigger('messageConfirmed', data);
+		  $(this).trigger('messageSendConfirmed', data);
 		},
 
-		confirmMessageReceipts: function(data)
+		confirmDelivery: function(data)
 		{
 		  if (!data && !data.length) {
 		    console.log('Why are we getting empty message receipt confirmatipons?');
 		    return;
 		  }
 
-		  data.forEach(messageReceivedConfirmation => {
-		    if (messageReceivedConfirmation.type == 'Channel') {
+		  data.forEach(messageDeliveryConfirmation => {
+		    if (messageDeliveryConfirmation.type == 'Channel') {
 		      console.log('should not be getting message receipts for this type!')
 		    } else {
 		      // TODO: Can perhaps make this more effecient
-		      var currentMessage = this.chatMessages[messageReceivedConfirmation.receiverId].messages.find((message) => message.clientMessageIdentifier == messageReceivedConfirmation.clientMessageIdentifier);
+		      var currentMessage = this.chatMessages[messageDeliveryConfirmation.receiverId].messages.find((message) => message.clientMessageIdentifier == messageDeliveryConfirmation.clientMessageIdentifier);
 		      
 		      var currentTime = new Date();
 
 		      // TODO: why are we needing this check?
 		      if (currentMessage) {
-		        currentMessage.timestamp = messageReceivedConfirmation.timestamp;
-		        currentMessage.isReceived = true;
+		        currentMessage.timestamp = messageDeliveryConfirmation.timestamp;
+		        currentMessage.isDelivered = true;
 		        currentMessage.clientEndTime = currentTime;
 		        currentMessage.timeElapsed = currentTime - currentMessage.clientStartTime;
 		      }
 		    }
 
-		    $(this).trigger('messageReceiptConfirmed', data);
+		    $(this).trigger('messageDeliveryConfirmed', data);
 		    // add confirmation mark
 		    //$('li[data-clientMessageIdentifier=' + messageReceivedConfirmation.clientMessageIdentifier + ']').addClass('received');
 		  });
@@ -14173,12 +14198,13 @@
 /* 108 */
 /***/ function(module, exports) {
 
+	// A generlisation of a DirectMessage/ Group
 	var ChannelsModel = function() {
 		this.loadChannels();
 
-	  this.currentChannel =  {type: "Channel", id: 0, name: " General"};
-	  this.onlineIndicators = {}
-	  this.typingIndicators = {}
+	  this.currentChannel =  {type: "Group", id: 0, name: " General"};
+	  this.onlineStatuses = {}
+	  this.typingStatuses = {}
 	}
 
 	ChannelsModel.prototype = {
@@ -14249,6 +14275,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var utilities = __webpack_require__(2)
+	var SocketEvents = __webpack_require__(113)
 
 	var MessagesView = function(messagesModel, channelsModel) {
 		this.messagesModel = messagesModel;
@@ -14263,17 +14290,17 @@
 	MessagesView.prototype = {
 		clearTimeoutIndicator: function() {
 		  window.isTyping = false;
-		  window.socket.emit('typingIndicator', { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
+		  window.socket.emit(SocketEvents.TypingStatus, { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
 		},
 
 		bindModelEvents: function() {
-		  $(this.messagesModel).on('messageConfirmed', (e, data) => {
-		  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('delivered');
+		  $(this.messagesModel).on('messageSendConfirmed', (e, data) => {
+		  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('sent');
 		  });
 
 		  // $('li[data-clientMessageIdentifier=' + messageReceivedConfirmation.clientMessageIdentifier + ']').addClass('received');
-		  $(this.messagesModel).on('messageReceiptConfirmed', (e, data) => {
-		  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('received');	  
+		  $(this.messagesModel).on('messageDeliveryConfirmed', (e, data) => {
+		  	$('li[data-clientMessageIdentifier=' + data.clientMessageIdentifier + ']').addClass('delivered');	  
 		  });
 
 		  $(this.messagesModel).on('messageAdded', (e, data) => {
@@ -14296,7 +14323,7 @@
 		bindDomEvents: function() {
 			$('#messageContainer').click(function(e) {
 		    var $sourceElement = $(e.target);
-		    if ($sourceElement.hasClass('delivery-receipt-confirmation')) {
+		    if ($sourceElement.hasClass('delivery-confirmation')) {
 		      var clientMessageIdentifier = $sourceElement.attr('data-client-message-indentifier');
 		      var receiverId = $sourceElement.attr('data-receiver-id');
 		      var message = app.messagesModel.chatMessages[receiverId].messages.find((message) => message.clientMessageIdentifier == clientMessageIdentifier);
@@ -14341,7 +14368,7 @@
 		  $('#m').on('input', () => {
 		    if (app.channelsModel.currentChannel.type == 'DirectMessage') {
 			    if (!window.isTyping) {
-			      window.socket.emit('typingIndicator', { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
+			      window.socket.emit(SocketEvents.TypingStatus, { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
 			      window.isTyping = true;
 			      window.typingTimeoutFunc = setTimeout(() => this.clearTimeoutIndicator(), 4000);
 			    }
@@ -14359,20 +14386,22 @@
 			  if (data.isDelivered) {
 			    li.addClass('delivered');
 			  }
-			  if (data.isReceived) {
-			    li.addClass('received');
+			  if (data.isSent) {
+			    li.addClass('sent');
 			  }
-			  //console.log(data)
 			  var name = $('<span>').addClass('sender').text(data.senderName);
 			  var clientTime = $('<span>').addClass('sentDate').text(utilities.formatDate(data.timestamp));
 			  var message = $('<span>').addClass('message').text(data.text);
-			  var deliveryConfirmation = $('<span>').addClass('fa').addClass('fa-check').addClass('delivery-confirmation');
-			  var deliveryReceiptConfirmation = $('<span>').addClass('fa')
+			  var sentConfirmation = $('<span>')
+			  	.addClass('fa')
+			  	.addClass('fa-check')
+			  	.addClass('sent-confirmation');
+			  var deliveryConfirmation = $('<span>').addClass('fa')
 			    .addClass('fa-check')
-			    .addClass('delivery-receipt-confirmation')
+			    .addClass('delivery-confirmation')
 			    .attr('data-client-message-indentifier', data.clientMessageIdentifier)
 			    .attr('data-receiver-id', app.channelsModel.currentChannel.id);
-			  li.append([name, clientTime, deliveryConfirmation, deliveryReceiptConfirmation, message]);
+			  li.append([name, clientTime, sentConfirmation, deliveryConfirmation, message]);
 			  $('#messages').append(li); 
 		},
 
@@ -14426,8 +14455,8 @@
 		},
 
 		bindDomEvents: function() {
-			$( ".channels-container" ).click((e) => {
-		    this.channelsModel.changeCurrentChannel({type: "Channel", id: 0, name: " General"});
+			$( ".groups-container" ).click((e) => {
+		    this.channelsModel.changeCurrentChannel({type: "Group", id: 0, name: " General"});
 			 });
 
 			$( ".users-container" ).click((e) => {
@@ -14437,9 +14466,9 @@
 		  });
 
 			$('.logout').click(function(e) {
-		  	localStorage.clear();
-		    window.socket.disconnect();
-		    window.location.reload();
+		  		localStorage.clear();
+		    	window.socket.disconnect();
+		    	window.location.reload();
 			}) 
 		},
 
@@ -14459,7 +14488,7 @@
 
 		      var isCurrentlyTyping = $('<span>').attr('data-id', item._id).addClass('typing-indicator').html('...');
 
-		      if (!(item._id in app.channelsModel.onlineIndicators)) {
+		      if (!(item._id in app.channelsModel.onlineStatuses)) {
 		        activityIcon.addClass('fa-circle-o').addClass('offline');
 		      }
 		      else {
@@ -14474,7 +14503,7 @@
 		        userLink.addClass('selected');
 		      }
 
-		      if (app.channelsModel.typingIndicators[item._id]) {
+		      if (app.channelsModel.typingStatuses[item._id]) {
 		        userLink.addClass('is-typing');
 		      }
 
@@ -14533,6 +14562,36 @@
 	}
 
 	module.exports = { initLogin }
+
+/***/ },
+/* 112 */
+/***/ function(module, exports) {
+
+	var SocketEvents = {
+		Hello: 'hello',
+		Message: 'message',
+	    MessageSentConfirmation: 'messageSentConfirmation',
+	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
+	    OnlineStatus: 'onlineStatus',
+	    TypingStatus: 'typingStatus',
+	}
+
+	module.exports = SocketEvents
+
+/***/ },
+/* 113 */
+/***/ function(module, exports) {
+
+	var SocketEvents = {
+		Hello: 'hello',
+		Message: 'message',
+	    MessageSentConfirmation: 'messageSentConfirmation',
+	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
+	    OnlineStatus: 'onlineStatus',
+	    TypingStatus: 'typingStatus',
+	}
+
+	module.exports = SocketEvents
 
 /***/ }
 /******/ ]);

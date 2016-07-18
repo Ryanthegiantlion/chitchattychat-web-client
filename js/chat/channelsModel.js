@@ -1,9 +1,10 @@
+// A generlisation of a DirectMessage/ Group
 var ChannelsModel = function() {
 	this.loadChannels();
 
-  this.currentChannel =  {type: "Channel", id: 0, name: " General"};
-  this.onlineIndicators = {}
-  this.typingIndicators = {}
+  this.currentChannel =  {type: "Group", id: 0, name: " General"};
+  this.onlineStatuses = {}
+  this.typingStatuses = {}
 }
 
 ChannelsModel.prototype = {
