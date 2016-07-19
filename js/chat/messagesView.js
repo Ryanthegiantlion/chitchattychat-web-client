@@ -44,6 +44,22 @@ MessagesView.prototype = {
 	  });
 	},
 
+	imageUrlRegex: /^https?:\/\/.*(jpg|png|gif|bmp)/,
+
+	getMessageBody: function(text) {
+		if (this.imageUrlRegex.test(text)) {
+			return {
+				type: 'Image',
+				url: text
+			}
+		} else {
+			return {
+				type: 'TextMessage',
+				text: text
+			}
+		}
+	},
+
 	bindDomEvents: function() {
 		$('#messageContainer').click(function(e) {
 	    var $sourceElement = $(e.target);
@@ -64,21 +80,15 @@ MessagesView.prototype = {
 	    messageData = {
 	    	chatId: app.channelsModel.currentChannel.id,
 	      type: app.channelsModel.currentChannel.type,
-	      text: newMessage, 
-	      receiverId: app.channelsModel.currentChannel.id, 
+	      body: this.getMessageBody(newMessage),
+	      receiverId: app.channelsModel.currentChannel.id,
+	      senderId: app.session.userId,
+	      senderName: app.session.userName, 
 	      clientMessageIdentifier: utilities.guid(),
 	      clientStartTime: new Date()
 	    };
 	    
-	    this.messagesModel.addMessage({
-	    	chatId: app.channelsModel.currentChannel.id,
-	      clientStartTime: messageData.clientStartTime,
-	      type: messageData.type,
-	      senderId: messageData.receiverId, 
-	      senderName: app.session.userName, 
-	      clientMessageIdentifier: messageData.clientMessageIdentifier,
-	      text: messageData.text
-	    });
+	    this.messagesModel.addMessage(messageData);
 
 	    //this.renderMessage({senderName: app.session.userName, text: newMessage, isSending: true, clientMessageIdentifier: messageData.clientMessageIdentifier});
 	    //scrollToBottomOfMessages();
@@ -104,6 +114,18 @@ MessagesView.prototype = {
 	  });
 	},
 
+	messageBodyHtml: function(body) {
+		if (body.type == 'TextMessage') {
+			var html = $('<span>').addClass('textMessage').text(body.text);
+		} else if (body.type == 'Image'){
+			var html = $('<img>').addClass('imageMessage').attr('src', body.url);
+		} else {
+			throw 'Unknown Message Type'
+		}
+
+		return html;
+	},
+
 	renderMessage: function(data) {
 		var li = $('<li>');
 		  li.attr('data-clientMessageIdentifier', data.clientMessageIdentifier)
@@ -115,7 +137,6 @@ MessagesView.prototype = {
 		  }
 		  var name = $('<span>').addClass('sender').text(data.senderName);
 		  var clientTime = $('<span>').addClass('sentDate').text(utilities.formatDate(data.timestamp));
-		  var message = $('<span>').addClass('message').text(data.text);
 		  var sentConfirmation = $('<span>')
 		  	.addClass('fa')
 		  	.addClass('fa-check')
@@ -125,7 +146,8 @@ MessagesView.prototype = {
 		    .addClass('delivery-confirmation')
 		    .attr('data-client-message-indentifier', data.clientMessageIdentifier)
 		    .attr('data-receiver-id', app.channelsModel.currentChannel.id);
-		  li.append([name, clientTime, sentConfirmation, deliveryConfirmation, message]);
+		  var messageBody = this.messageBodyHtml(data.body);
+		  li.append([name, clientTime, sentConfirmation, deliveryConfirmation, messageBody]);
 		  $('#messages').append(li); 
 	},
 

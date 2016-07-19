@@ -110,10 +110,15 @@ body {
   color: #666;
   font-size: 14px;
 }
-#messages .message {
+#messages .textMessage {
   margin-top: 2px;
   display: block;
   overflow-wrap: break-word;
+}
+#messages .imageMessage {
+  max-width: 50%;
+  display: block;
+  margin: 10px;
 }
 #messageForm {
   display: -webkit-flex;

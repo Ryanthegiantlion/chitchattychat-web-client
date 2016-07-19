@@ -7,7 +7,7 @@ var ChannelsModel = require('./channelsModel')
 var MessagesView = require('./messagesView')
 var ChannelsView = require('./channelsView')
 
-var SocketEvents = require('../constants/SocketEvents')
+var SocketEvents = require('../constants/socketEvents')
 
 
 function initChat()
@@ -46,7 +46,7 @@ function initChat()
     if (data.type == 'DirectMessage') {
       window.socket.emit(SocketEvents.MessageDeliveredConfirmation, data);
     }
-    utilities.notifyMe(data.text)
+    utilities.notifyMe(data.body.text)
   });
   window.socket.on(SocketEvents.MessageDeliveredConfirmation, function(data) {
     console.log('delivery confirmation 111')

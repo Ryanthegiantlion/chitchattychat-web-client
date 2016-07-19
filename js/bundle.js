@@ -45,7 +45,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var chat = __webpack_require__(1)
-	var login = __webpack_require__(111)
+	var login = __webpack_require__(112)
 
 	console.log('initting . . .')
 	var userName = localStorage.getItem('userName')
@@ -68,12 +68,12 @@
 
 	var SessionModel = __webpack_require__(106)
 	var MessagesModel = __webpack_require__(107)
-	var ChannelsModel = __webpack_require__(108)
+	var ChannelsModel = __webpack_require__(109)
 
-	var MessagesView = __webpack_require__(109)
-	var ChannelsView = __webpack_require__(110)
+	var MessagesView = __webpack_require__(110)
+	var ChannelsView = __webpack_require__(111)
 
-	var SocketEvents = __webpack_require__(112)
+	var SocketEvents = __webpack_require__(108)
 
 
 	function initChat()
@@ -112,7 +112,7 @@
 	    if (data.type == 'DirectMessage') {
 	      window.socket.emit(SocketEvents.MessageDeliveredConfirmation, data);
 	    }
-	    utilities.notifyMe(data.text)
+	    utilities.notifyMe(data.body.text)
 	  });
 	  window.socket.on(SocketEvents.MessageDeliveredConfirmation, function(data) {
 	    console.log('delivery confirmation 111')
@@ -14046,19 +14046,12 @@
 
 /***/ },
 /* 107 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
+
+	var SocketEvents = __webpack_require__(108)
 
 	var MessagesModel = function() {
 		this.loadMessages();
-	}
-
-	var SocketEvents = {
-		PingPong: 'pingPong',
-		Message: 'message',
-	    MessageSentConfirmation: 'messageSentConfirmation',
-	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
-	    OnlineStatus: 'onlineStatus',
-	    TypingStatus: 'typingStatus',
 	}
 
 	MessagesModel.prototype = {
@@ -14070,66 +14063,12 @@
 			localStorage.setItem('messages:' + app.session.userId, JSON.stringify(this.chatMessages));
 		},
 
-		getOfflineMessages: function() {
-		  // query = app.session.lastMessageTimeStamp ? {lastMessageTimeStamp: app.session.lastMessageTimeStamp.toJSON()} : null;
-		  // $.ajax({
-		  //     url: apiUrl + '/messages/unread',
-		  //     contentType: "application/json; charset=UTF-8",
-		  //     headers: {'User-Id': app.session.userId},
-		  //     data: query
-		  //   })
-		  //   .done(function(data, testStatus,jqXHR) {
-		  //     if (data && data.length > 0) {
-		  //       var lastMessage = data[0];
-		  //       //TODO: eeeew!!!!
-		  //       data.reverse();
-		  //       data.forEach(function(messageItem)
-		  //       {
-		  //         if (messageItem.type == 'DirectMessage') {
-		  //           window.socket.emit(SocketEvents.MessageDeliveredConfirmation, messageItem);
-		  //         }
-		  //         var userWithUnreadMessage = app.channelsModel.users.find(function(userItem) { return messageItem.senderId == userItem._id});
-		  //         if (userWithUnreadMessage) {
-		  //           userWithUnreadMessage.hasUnreadMessages = true;
-		  //         }
-		  //         app.messagesModel.addMessage(messageItem);
-		  //       });
-		  //       app.session.lastMessageTimeStamp = new Date(lastMessage.timestamp);
-		  //       if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
-		  //       localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
-		  //       app.channelsView.renderChannels();
-		  //     }
-		  //   })
-		  //   .fail(function() {
-		  //     console.log( "failed to get offline messages" );
-		  //   })
-		  //   .always(function() {
-		  //     console.log( "completed getting offline messages" );
-		  // });
-		},
-
 		addMessage: function(data) {
-			if (data.type == 'DirectMessage') {
-		    if (!this.chatMessages[data.senderId]) {
-		      this.chatMessages[data.senderId] = { messages: [] };
-		    }
-		    this.chatMessages[data.senderId].messages.push({
-		      clientStartTime: data.clientStartTime,
-		      clientEndTime: data.clientEndTime,
-		      senderName: data.senderName,
-		      text: data.text,
-		      clientMessageIdentifier: data.clientMessageIdentifier,
-		      timestamp: data.timestamp
-		    });
+	    if (!this.chatMessages[data.chatId]) {
+		      this.chatMessages[data.chatId] = { messages: [] };
 		  }
-		  else if (data.type == 'Group') {
-		    this.chatMessages['0'].messages.push({
-		      senderName: data.senderName,
-		      text: data.text,
-		      clientMessageIdentifier: data.clientMessageIdentifier,
-		      timestamp: data.timestamp
-		    });
-		  }
+
+		  this.chatMessages[data.chatId].messages.push(data);
 
 	  	this.saveMessages();
 
@@ -14138,15 +14077,9 @@
 
 		confirmSend: function(data)
 		{
-		  if (data.type == 'Group') {
-		    var message = this.chatMessages['0'].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
-		    message.timestamp = data.timestamp;
-		    message.isSent = true;
-		  } else {
-		    var message = this.chatMessages[data.receiverId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
-		    message.timestamp = data.timestamp;
-		    message.isSent = true;
-		  }
+	    var message = this.chatMessages[data.chatId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
+	    message.timestamp = data.timestamp;
+	    message.isSent = true;
 
 		  this.saveMessages();
 
@@ -14161,7 +14094,7 @@
 		  }
 
 		  data.forEach(messageDeliveryConfirmation => {
-		    if (messageDeliveryConfirmation.type == 'Channel') {
+		    if (messageDeliveryConfirmation.type == 'Group') {
 		      console.log('should not be getting message receipts for this type!')
 		    } else {
 		      // TODO: Can perhaps make this more effecient
@@ -14196,6 +14129,21 @@
 
 /***/ },
 /* 108 */
+/***/ function(module, exports) {
+
+	var SocketEvents = {
+		Hello: 'hello',
+		Message: 'message',
+	    MessageSentConfirmation: 'messageSentConfirmation',
+	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
+	    OnlineStatus: 'onlineStatus',
+	    TypingStatus: 'typingStatus',
+	}
+
+	module.exports = SocketEvents
+
+/***/ },
+/* 109 */
 /***/ function(module, exports) {
 
 	// A generlisation of a DirectMessage/ Group
@@ -14271,11 +14219,11 @@
 	module.exports = ChannelsModel
 
 /***/ },
-/* 109 */
+/* 110 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var utilities = __webpack_require__(2)
-	var SocketEvents = __webpack_require__(113)
+	var SocketEvents = __webpack_require__(108)
 
 	var MessagesView = function(messagesModel, channelsModel) {
 		this.messagesModel = messagesModel;
@@ -14320,6 +14268,22 @@
 		  });
 		},
 
+		imageUrlRegex: /^https?:\/\/.*(jpg|png|gif|bmp)/,
+
+		getMessageBody: function(text) {
+			if (this.imageUrlRegex.test(text)) {
+				return {
+					type: 'Image',
+					url: text
+				}
+			} else {
+				return {
+					type: 'TextMessage',
+					text: text
+				}
+			}
+		},
+
 		bindDomEvents: function() {
 			$('#messageContainer').click(function(e) {
 		    var $sourceElement = $(e.target);
@@ -14340,21 +14304,15 @@
 		    messageData = {
 		    	chatId: app.channelsModel.currentChannel.id,
 		      type: app.channelsModel.currentChannel.type,
-		      text: newMessage, 
-		      receiverId: app.channelsModel.currentChannel.id, 
+		      body: this.getMessageBody(newMessage),
+		      receiverId: app.channelsModel.currentChannel.id,
+		      senderId: app.session.userId,
+		      senderName: app.session.userName, 
 		      clientMessageIdentifier: utilities.guid(),
 		      clientStartTime: new Date()
 		    };
 		    
-		    this.messagesModel.addMessage({
-		    	chatId: app.channelsModel.currentChannel.id,
-		      clientStartTime: messageData.clientStartTime,
-		      type: messageData.type,
-		      senderId: messageData.receiverId, 
-		      senderName: app.session.userName, 
-		      clientMessageIdentifier: messageData.clientMessageIdentifier,
-		      text: messageData.text
-		    });
+		    this.messagesModel.addMessage(messageData);
 
 		    //this.renderMessage({senderName: app.session.userName, text: newMessage, isSending: true, clientMessageIdentifier: messageData.clientMessageIdentifier});
 		    //scrollToBottomOfMessages();
@@ -14380,6 +14338,18 @@
 		  });
 		},
 
+		messageBodyHtml: function(body) {
+			if (body.type == 'TextMessage') {
+				var html = $('<span>').addClass('textMessage').text(body.text);
+			} else if (body.type == 'Image'){
+				var html = $('<img>').addClass('imageMessage').attr('src', body.url);
+			} else {
+				throw 'Unknown Message Type'
+			}
+
+			return html;
+		},
+
 		renderMessage: function(data) {
 			var li = $('<li>');
 			  li.attr('data-clientMessageIdentifier', data.clientMessageIdentifier)
@@ -14391,7 +14361,6 @@
 			  }
 			  var name = $('<span>').addClass('sender').text(data.senderName);
 			  var clientTime = $('<span>').addClass('sentDate').text(utilities.formatDate(data.timestamp));
-			  var message = $('<span>').addClass('message').text(data.text);
 			  var sentConfirmation = $('<span>')
 			  	.addClass('fa')
 			  	.addClass('fa-check')
@@ -14401,7 +14370,8 @@
 			    .addClass('delivery-confirmation')
 			    .attr('data-client-message-indentifier', data.clientMessageIdentifier)
 			    .attr('data-receiver-id', app.channelsModel.currentChannel.id);
-			  li.append([name, clientTime, sentConfirmation, deliveryConfirmation, message]);
+			  var messageBody = this.messageBodyHtml(data.body);
+			  li.append([name, clientTime, sentConfirmation, deliveryConfirmation, messageBody]);
 			  $('#messages').append(li); 
 		},
 
@@ -14417,7 +14387,7 @@
 	module.exports = MessagesView
 
 /***/ },
-/* 110 */
+/* 111 */
 /***/ function(module, exports) {
 
 	var ChannelsView = function(channelsModel, messagesModel){
@@ -14527,7 +14497,7 @@
 	module.exports = ChannelsView;
 
 /***/ },
-/* 111 */
+/* 112 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var chat = __webpack_require__(1)
@@ -14562,36 +14532,6 @@
 	}
 
 	module.exports = { initLogin }
-
-/***/ },
-/* 112 */
-/***/ function(module, exports) {
-
-	var SocketEvents = {
-		Hello: 'hello',
-		Message: 'message',
-	    MessageSentConfirmation: 'messageSentConfirmation',
-	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
-	    OnlineStatus: 'onlineStatus',
-	    TypingStatus: 'typingStatus',
-	}
-
-	module.exports = SocketEvents
-
-/***/ },
-/* 113 */
-/***/ function(module, exports) {
-
-	var SocketEvents = {
-		Hello: 'hello',
-		Message: 'message',
-	    MessageSentConfirmation: 'messageSentConfirmation',
-	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
-	    OnlineStatus: 'onlineStatus',
-	    TypingStatus: 'typingStatus',
-	}
-
-	module.exports = SocketEvents
 
 /***/ }
 /******/ ]);
