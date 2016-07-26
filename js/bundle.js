@@ -224,6 +224,14 @@
 	  $container.animate({"scrollTop": $(selector)[0].scrollHeight}, "slow");
 	}
 
+	function getTimestampFromId(_id)
+	{
+	  var timestamp = _id.toString().substring(0,8)
+	  var date = new Date( parseInt( timestamp, 16 ) * 1000 )
+
+	  return date;
+	}
+
 	module.exports = { guid, formatDate, notifyMe, scrollToBottom }
 
 /***/ },
@@ -14075,11 +14083,17 @@
 	  	$(this).trigger('messageAdded', data);
 		},
 
+		addChat:function(chatId) {
+			if (!this.chatMessages[chatId]) {
+		      this.chatMessages[chatId] = { messages: [] };
+		    }
+		},
+
 		confirmSend: function(data)
 		{
-	    var message = this.chatMessages[data.chatId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
-	    message.timestamp = data.timestamp;
-	    message.isSent = true;
+	    	var message = this.chatMessages[data.chatId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
+	    	message.timestamp = data.timestamp;
+	    	message.isSent = true;
 
 		  this.saveMessages();
 
@@ -14098,7 +14112,7 @@
 		      console.log('should not be getting message receipts for this type!')
 		    } else {
 		      // TODO: Can perhaps make this more effecient
-		      var currentMessage = this.chatMessages[messageDeliveryConfirmation.receiverId].messages.find((message) => message.clientMessageIdentifier == messageDeliveryConfirmation.clientMessageIdentifier);
+		      var currentMessage = this.chatMessages[messageDeliveryConfirmation.chatId].messages.find((message) => message.clientMessageIdentifier == messageDeliveryConfirmation.clientMessageIdentifier);
 		      
 		      var currentTime = new Date();
 
@@ -14150,7 +14164,7 @@
 	var ChannelsModel = function() {
 		this.loadChannels();
 
-	  this.currentChannel =  {type: "Group", id: 0, name: " General"};
+	  this.currentChannel =  {type: "Group", chatId: 0, userId: null, name: " General"};
 	  this.onlineStatuses = {}
 	  this.typingStatuses = {}
 	}
@@ -14165,7 +14179,7 @@
 		},	
 
 		markChannelAsUnread: function(chatId) {
-			var existingUser = this.users.find(function(item){ return item._id == chatId});
+			var existingUser = this.users.find(function(item){ return item.chatId == chatId});
 		    if (existingUser) {
 		      existingUser.hasUnreadMessages = true;
 		    }
@@ -14178,8 +14192,8 @@
 		changeCurrentChannel: function(currentChannel) {
 			this.currentChannel = currentChannel;
 
-			var selectedUserId = currentChannel.id;
-		    var selectedUser = app.channelsModel.users.find(function(item) { return item._id == selectedUserId});
+			var selectedChatId = currentChannel.chatId;
+		    var selectedUser = app.channelsModel.users.find(function(item) { return item.chatId == selectedChatId});
 		    if (selectedUser) {
 		      selectedUser.hasUnreadMessages = false;
 		    }
@@ -14191,8 +14205,11 @@
 
 		sync: function() {
 			$.ajax({
-	      url: apiUrl + '/users',
-	      contentType: "application/json; charset=UTF-8",
+	      		url: apiUrl + '/users',
+	      		headers: {
+	      			UserId: app.session.userId,
+	      		},
+	      		contentType: "application/json; charset=UTF-8",
 		    })
 		    .done(function(data, testStatus,jqXHR) {
 		      data.forEach(function(user){
@@ -14238,7 +14255,7 @@
 	MessagesView.prototype = {
 		clearTimeoutIndicator: function() {
 		  window.isTyping = false;
-		  window.socket.emit(SocketEvents.TypingStatus, { isTyping: false, receiverId: app.channelsModel.currentChannel.id });
+		  window.socket.emit(SocketEvents.TypingStatus, { isTyping: false, receiverId: app.channelsModel.currentChannel.userId });
 		},
 
 		bindModelEvents: function() {
@@ -14252,7 +14269,7 @@
 		  });
 
 		  $(this.messagesModel).on('messageAdded', (e, data) => {
-		  	if (data.chatId == app.channelsModel.currentChannel.id) {
+		  	if (data.chatId == app.channelsModel.currentChannel.chatId) {
 		  		this.renderMessage(data);	 
 
 		  		utilities.scrollToBottom('#messages'); 
@@ -14260,8 +14277,9 @@
 		  });
 
 		  $(this.channelsModel).on('change:selected', (e, data) => {
-		  	var newChannelId = this.channelsModel.currentChannel.id;
-		  	var tabMessages = this.messagesModel.chatMessages[newChannelId].messages;
+		  	console.log(this.channelsModel.currentChannel)
+		  	var newChannelChatId = this.channelsModel.currentChannel.chatId;
+		  	var tabMessages = this.messagesModel.chatMessages[newChannelChatId].messages;
 			  this.renderMessages($(e.target), tabMessages);
 			  // unlike the utility method we want this scroll to be immediate
 			  $('#messages').scrollTop($('#messages')[0].scrollHeight);
@@ -14290,7 +14308,7 @@
 		    if ($sourceElement.hasClass('delivery-confirmation')) {
 		      var clientMessageIdentifier = $sourceElement.attr('data-client-message-indentifier');
 		      var receiverId = $sourceElement.attr('data-receiver-id');
-		      var message = app.messagesModel.chatMessages[receiverId].messages.find((message) => message.clientMessageIdentifier == clientMessageIdentifier);
+		      var message = app.messagesModel.chatMessages[chatId].messages.find((message) => message.clientMessageIdentifier == clientMessageIdentifier);
 		      if (message) {
 		        console.log(message.timeElapsed);
 		      }
@@ -14302,10 +14320,10 @@
 		    this.clearTimeoutIndicator();
 		    newMessage = $('#m').val();
 		    messageData = {
-		    	chatId: app.channelsModel.currentChannel.id,
+		    	chatId: app.channelsModel.currentChannel.chatId,
 		      type: app.channelsModel.currentChannel.type,
 		      body: this.getMessageBody(newMessage),
-		      receiverId: app.channelsModel.currentChannel.id,
+		      receiverId: app.channelsModel.currentChannel.userId,
 		      senderId: app.session.userId,
 		      senderName: app.session.userName, 
 		      clientMessageIdentifier: utilities.guid(),
@@ -14326,7 +14344,7 @@
 		  $('#m').on('input', () => {
 		    if (app.channelsModel.currentChannel.type == 'DirectMessage') {
 			    if (!window.isTyping) {
-			      window.socket.emit(SocketEvents.TypingStatus, { isTyping: true, receiverId: app.channelsModel.currentChannel.id })
+			      window.socket.emit(SocketEvents.TypingStatus, { isTyping: true, receiverId: app.channelsModel.currentChannel.userId })
 			      window.isTyping = true;
 			      window.typingTimeoutFunc = setTimeout(() => this.clearTimeoutIndicator(), 4000);
 			    }
@@ -14405,12 +14423,12 @@
 		changeSelectedTab: function()
 		{
 		  $('.selected').removeClass('selected');
-		  $('a[data-id="' + app.channelsModel.currentChannel.id + '"]').addClass('selected');
+		  $('a[data-chat-id="' + app.channelsModel.currentChannel.chatId + '"]').addClass('selected');
 		},
 
 		bindModelEvents: function() {
 			$(this.messagesModel).on('messageAdded', (e, data) => {
-				if (data.chatId != app.channelsModel.currentChannel.id) {
+				if (data.chatId != app.channelsModel.currentChannel.chatId) {
 					this.channelsModel.markChannelAsUnread(data.chatId);
 		  	}
 			});
@@ -14426,13 +14444,17 @@
 
 		bindDomEvents: function() {
 			$( ".groups-container" ).click((e) => {
-		    this.channelsModel.changeCurrentChannel({type: "Group", id: 0, name: " General"});
+		    	this.channelsModel.changeCurrentChannel({type: "Group", chatId: 0, userId: null, name: " General"});
+
+		    	console.log(this.channelsModel.currentChannel);
 			 });
 
 			$( ".users-container" ).click((e) => {
-				this.channelsModel.changeCurrentChannel({type: "DirectMessage", id: $(e.target).attr('data-id'), name: $(e.target).html()});
+				this.channelsModel.changeCurrentChannel({type: "DirectMessage", chatId: $(e.target).attr('data-chat-id'), userId: $(e.target).attr('data-user-id'), name: $(e.target).html()});
 
-		    app.channelsView.renderChannels();
+		    	app.channelsView.renderChannels();
+
+		    	console.log(this.channelsModel.currentChannel);
 		  });
 
 			$('.logout').click(function(e) {
@@ -14448,15 +14470,14 @@
 
 		  app.channelsModel.users.forEach(function(item){
 
-		    if (!app.messagesModel.chatMessages[item._id]) {
-		      app.messagesModel.chatMessages[item._id] = { messages: [] };
-		    }
+		  	app.messagesModel.addChat(item.chatId);
+
 		    if (item._id != app.session.userId) {
-		      var userLinkText = $('<span>').attr('data-id', item._id).text(item.userName);
+		      var userLinkText = $('<span>').attr('data-user-id', item._id).attr('data-chat-id', item.chatId).text(item.userName);
 
-		      var activityIcon = $('<span>').attr('data-id', item._id).addClass('fa').addClass('indicator-icon');
+		      var activityIcon = $('<span>').attr('data-user-id', item._id).attr('data-chat-id', item.chatId).addClass('fa').addClass('indicator-icon');
 
-		      var isCurrentlyTyping = $('<span>').attr('data-id', item._id).addClass('typing-indicator').html('...');
+		      var isCurrentlyTyping = $('<span>').attr('data-user-id', item._id).attr('data-chat-id', item.chatId).addClass('typing-indicator').html('...');
 
 		      if (!(item._id in app.channelsModel.onlineStatuses)) {
 		        activityIcon.addClass('fa-circle-o').addClass('offline');
@@ -14467,9 +14488,9 @@
 
 		      var userLink = $('<a>')
 		        .attr('href', 'javascript:;')
-		        .attr('data-id', item._id);
+		        .attr('data-user-id', item._id).attr('data-chat-id', item.chatId);
 
-		      if (app.channelsModel.currentChannel.id == item._id) {
+		      if (app.channelsModel.currentChannel.chatId == item.chatId) {
 		        userLink.addClass('selected');
 		      }
 

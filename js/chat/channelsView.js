@@ -13,12 +13,12 @@ ChannelsView.prototype = {
 	changeSelectedTab: function()
 	{
 	  $('.selected').removeClass('selected');
-	  $('a[data-id="' + app.channelsModel.currentChannel.id + '"]').addClass('selected');
+	  $('a[data-chat-id="' + app.channelsModel.currentChannel.chatId + '"]').addClass('selected');
 	},
 
 	bindModelEvents: function() {
 		$(this.messagesModel).on('messageAdded', (e, data) => {
-			if (data.chatId != app.channelsModel.currentChannel.id) {
+			if (data.chatId != app.channelsModel.currentChannel.chatId) {
 				this.channelsModel.markChannelAsUnread(data.chatId);
 	  	}
 		});
@@ -34,13 +34,17 @@ ChannelsView.prototype = {
 
 	bindDomEvents: function() {
 		$( ".groups-container" ).click((e) => {
-	    this.channelsModel.changeCurrentChannel({type: "Group", id: 0, name: " General"});
+	    	this.channelsModel.changeCurrentChannel({type: "Group", chatId: 0, userId: null, name: " General"});
+
+	    	console.log(this.channelsModel.currentChannel);
 		 });
 
 		$( ".users-container" ).click((e) => {
-			this.channelsModel.changeCurrentChannel({type: "DirectMessage", id: $(e.target).attr('data-id'), name: $(e.target).html()});
+			this.channelsModel.changeCurrentChannel({type: "DirectMessage", chatId: $(e.target).attr('data-chat-id'), userId: $(e.target).attr('data-user-id'), name: $(e.target).html()});
 
-	    app.channelsView.renderChannels();
+	    	app.channelsView.renderChannels();
+
+	    	console.log(this.channelsModel.currentChannel);
 	  });
 
 		$('.logout').click(function(e) {
@@ -56,15 +60,14 @@ ChannelsView.prototype = {
 
 	  app.channelsModel.users.forEach(function(item){
 
-	    if (!app.messagesModel.chatMessages[item._id]) {
-	      app.messagesModel.chatMessages[item._id] = { messages: [] };
-	    }
+	  	app.messagesModel.addChat(item.chatId);
+
 	    if (item._id != app.session.userId) {
-	      var userLinkText = $('<span>').attr('data-id', item._id).text(item.userName);
+	      var userLinkText = $('<span>').attr('data-user-id', item._id).attr('data-chat-id', item.chatId).text(item.userName);
 
-	      var activityIcon = $('<span>').attr('data-id', item._id).addClass('fa').addClass('indicator-icon');
+	      var activityIcon = $('<span>').attr('data-user-id', item._id).attr('data-chat-id', item.chatId).addClass('fa').addClass('indicator-icon');
 
-	      var isCurrentlyTyping = $('<span>').attr('data-id', item._id).addClass('typing-indicator').html('...');
+	      var isCurrentlyTyping = $('<span>').attr('data-user-id', item._id).attr('data-chat-id', item.chatId).addClass('typing-indicator').html('...');
 
 	      if (!(item._id in app.channelsModel.onlineStatuses)) {
 	        activityIcon.addClass('fa-circle-o').addClass('offline');
@@ -75,9 +78,9 @@ ChannelsView.prototype = {
 
 	      var userLink = $('<a>')
 	        .attr('href', 'javascript:;')
-	        .attr('data-id', item._id);
+	        .attr('data-user-id', item._id).attr('data-chat-id', item.chatId);
 
-	      if (app.channelsModel.currentChannel.id == item._id) {
+	      if (app.channelsModel.currentChannel.chatId == item.chatId) {
 	        userLink.addClass('selected');
 	      }
 

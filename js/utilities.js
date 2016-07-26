@@ -63,4 +63,12 @@ function scrollToBottom(selector)
   $container.animate({"scrollTop": $(selector)[0].scrollHeight}, "slow");
 }
 
+function getTimestampFromId(_id)
+{
+  var timestamp = _id.toString().substring(0,8)
+  var date = new Date( parseInt( timestamp, 16 ) * 1000 )
+
+  return date;
+}
+
 module.exports = { guid, formatDate, notifyMe, scrollToBottom }

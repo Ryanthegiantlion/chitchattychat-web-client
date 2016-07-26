@@ -25,11 +25,17 @@ MessagesModel.prototype = {
   	$(this).trigger('messageAdded', data);
 	},
 
+	addChat:function(chatId) {
+		if (!this.chatMessages[chatId]) {
+	      this.chatMessages[chatId] = { messages: [] };
+	    }
+	},
+
 	confirmSend: function(data)
 	{
-    var message = this.chatMessages[data.chatId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
-    message.timestamp = data.timestamp;
-    message.isSent = true;
+    	var message = this.chatMessages[data.chatId].messages.find((item) => item.clientMessageIdentifier == data.clientMessageIdentifier);
+    	message.timestamp = data.timestamp;
+    	message.isSent = true;
 
 	  this.saveMessages();
 
@@ -48,7 +54,7 @@ MessagesModel.prototype = {
 	      console.log('should not be getting message receipts for this type!')
 	    } else {
 	      // TODO: Can perhaps make this more effecient
-	      var currentMessage = this.chatMessages[messageDeliveryConfirmation.receiverId].messages.find((message) => message.clientMessageIdentifier == messageDeliveryConfirmation.clientMessageIdentifier);
+	      var currentMessage = this.chatMessages[messageDeliveryConfirmation.chatId].messages.find((message) => message.clientMessageIdentifier == messageDeliveryConfirmation.clientMessageIdentifier);
 	      
 	      var currentTime = new Date();
 

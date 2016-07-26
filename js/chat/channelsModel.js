@@ -2,7 +2,7 @@
 var ChannelsModel = function() {
 	this.loadChannels();
 
-  this.currentChannel =  {type: "Group", id: 0, name: " General"};
+  this.currentChannel =  {type: "Group", chatId: 0, userId: null, name: " General"};
   this.onlineStatuses = {}
   this.typingStatuses = {}
 }
@@ -17,7 +17,7 @@ ChannelsModel.prototype = {
 	},	
 
 	markChannelAsUnread: function(chatId) {
-		var existingUser = this.users.find(function(item){ return item._id == chatId});
+		var existingUser = this.users.find(function(item){ return item.chatId == chatId});
 	    if (existingUser) {
 	      existingUser.hasUnreadMessages = true;
 	    }
@@ -30,8 +30,8 @@ ChannelsModel.prototype = {
 	changeCurrentChannel: function(currentChannel) {
 		this.currentChannel = currentChannel;
 
-		var selectedUserId = currentChannel.id;
-	    var selectedUser = app.channelsModel.users.find(function(item) { return item._id == selectedUserId});
+		var selectedChatId = currentChannel.chatId;
+	    var selectedUser = app.channelsModel.users.find(function(item) { return item.chatId == selectedChatId});
 	    if (selectedUser) {
 	      selectedUser.hasUnreadMessages = false;
 	    }
@@ -43,8 +43,11 @@ ChannelsModel.prototype = {
 
 	sync: function() {
 		$.ajax({
-      url: apiUrl + '/users',
-      contentType: "application/json; charset=UTF-8",
+      		url: apiUrl + '/users',
+      		headers: {
+      			UserId: app.session.userId,
+      		},
+      		contentType: "application/json; charset=UTF-8",
 	    })
 	    .done(function(data, testStatus,jqXHR) {
 	      data.forEach(function(user){
