@@ -83,6 +83,7 @@ MessagesView.prototype = {
 	      type: app.channelsModel.currentChannel.type,
 	      body: this.getMessageBody(newMessage),
 	      receiverId: app.channelsModel.currentChannel.userId,
+	      receiverName: app.channelsModel.currentChannel.name,
 	      senderId: app.session.userId,
 	      senderName: app.session.userName, 
 	      clientMessageIdentifier: utilities.guid(),
@@ -117,7 +118,9 @@ MessagesView.prototype = {
 
 	messageBodyHtml: function(body) {
 		if (body.type == 'TextMessage') {
-			var html = $('<span>').addClass('textMessage').text(body.text);
+			var htmlEscapedText = $('<div/>').text(body.text).html();
+			var textWithBreaks = htmlEscapedText.replace(/(?:\r\n|\r|\n)/g,'<br/>');
+			var html = $('<span>').addClass('textMessage').html(textWithBreaks);
 		} else if (body.type == 'Image'){
 			var html = $('<img>').addClass('imageMessage').attr('src', body.url);
 		} else {
