@@ -31,14 +31,17 @@ function initChat()
   messages.scrollTop($('#messages')[0].scrollHeight);
   $('#UserInfo').html('logged in as: ' + app.session.userName);
 
-  var query = {query: "userId=" + app.session.userId + "&userName=" + app.session.userName + "&lastMessageTimeStamp=" + app.session.lastMessageTimeStamp.toJSON()};
-  window.socket = io(socketUrl, query);
+  var options = {query: app.session.getSocketQueryParameters()};
+  console.log('#############creating socket connection###########');
+  window.socket = io(socketUrl, options);
   window.pingFuncId = undefined;
 
   //var socket = io('https://chatty-socket-chat-server.herokuapp.com/', query);
   
   window.socket.on(SocketEvents.Message, function(data){
-    app.session.lastMessageTimeStamp = new Date(data.timestamp);
+    console.log('updating timestamp')
+    app.session.updateTimeStamp(new Date(data.timestamp));
+    console.log(app.session.lastMessageTimeStamp);
     if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
     localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
     //onReceivedMessage(data);
@@ -53,7 +56,7 @@ function initChat()
     app.messagesModel.confirmDelivery(data);
   });
   window.socket.on(SocketEvents.MessageSentConfirmation, function(data){
-    app.session.lastMessageTimeStamp = new Date(data.timestamp);
+    app.session.updateTimeStamp(new Date(data.timestamp));
     localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
     app.messagesModel.confirmSend(data);
   });
