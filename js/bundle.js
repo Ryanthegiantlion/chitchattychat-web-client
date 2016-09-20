@@ -117,6 +117,23 @@
 	    }
 	    utilities.notifyMe(data.body.text)
 	  });
+	  window.socket.on(SocketEvents.OfflineMessages, function(data){
+	    data.forEach((item) => { 
+	        if (item.type == 'DirectMessage') {
+	          app.messagesModel.addMessage(item);
+	          window.socket.emit(SocketEvents.MessageDeliveredConfirmation, item);
+	          app.messagesModel.addMessage(item);
+	        }
+	      }
+	    )
+	    console.log('updating timestamp')
+	    app.session.updateTimeStamp(new Date(data[data.length-1].timestamp));
+	    console.log(app.session.lastMessageTimeStamp);
+	    if (!app.session.lastMessageTimeStamp.toJSON) {alert('no tojson method for date!!!')}
+	    localStorage.setItem('lastMessageTimeStamp', app.session.lastMessageTimeStamp.toJSON());
+	    //onReceivedMessage(data);
+	    utilities.notifyMe(data[data.length-1].body.text)
+	  });
 	  window.socket.on(SocketEvents.MessageDeliveredConfirmation, function(data) {
 	    console.log('delivery confirmation 111')
 	    app.messagesModel.confirmDelivery(data);
@@ -14164,10 +14181,11 @@
 	var SocketEvents = {
 		Hello: 'hello',
 		Message: 'message',
-	    MessageSentConfirmation: 'messageSentConfirmation',
-	    MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
-	    OnlineStatus: 'onlineStatus',
-	    TypingStatus: 'typingStatus',
+	  MessageSentConfirmation: 'messageSentConfirmation',
+	  MessageDeliveredConfirmation: 'messageDeliveredConfirmation',
+	  OfflineMessages: 'offlineMessages',
+	  OnlineStatus: 'onlineStatus',
+	  TypingStatus: 'typingStatus',
 	}
 
 	module.exports = SocketEvents
